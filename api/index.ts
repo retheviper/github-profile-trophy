@@ -9,6 +9,8 @@ import { GithubApiService } from "../src/Services/GithubApiService.ts";
 import { ServiceError } from "../src/Types/index.ts";
 import { ErrorPage } from "../src/pages/Error.ts";
 import { cacheProvider } from "../src/config/cache.ts";
+import { fetchGraphQLStats } from "../src/github.ts";
+import "https://deno.land/std@0.224.0/dotenv/load.ts";
 
 const serviceProvider = new GithubApiService();
 const client = new GithubRepositoryService(serviceProvider).repository;
@@ -121,12 +123,13 @@ async function app(req: Request): Promise<Response> {
   const hasCache = !!Object.keys(userInfo).length;
 
   if (!hasCache) {
-    const userResponseInfo = await client.requestUserInfo(username);
-    if (userResponseInfo instanceof ServiceError) {
+    const token = Deno.env.get("GITHUB_TOKEN") ?? "";
+    const userResponseInfo = await fetchGraphQLStats(username, token);
+    if (!userResponseInfo || typeof userResponseInfo !== "object") {
       return new Response(
-        ErrorPage({ error: userResponseInfo }).render(),
+        ErrorPage({ error: new ServiceError(500, "Failed to fetch GitHub stats") }).render(),
         {
-          status: userResponseInfo.code,
+          status: 500,
           headers: new Headers({ "Content-Type": "text" }),
         },
       );
